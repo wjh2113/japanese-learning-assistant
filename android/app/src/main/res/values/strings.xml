@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">日语学习助手</string>
+    <string name="title_activity_main">日语学习助手</string>
+    <string name="package_name">com.example.japaneseassistant</string>
+    <string name="custom_url_scheme">com.example.japaneseassistant</string>
+</resources>

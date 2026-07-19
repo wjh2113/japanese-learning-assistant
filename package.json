@@ -1,0 +1,35 @@
+{
+  "name": "japanese-learning-assistant",
+  "version": "1.0.0",
+  "description": "一个基于浏览器的日语学习工具，覆盖「听、说、读、写」四项能力，并接入 AI 大模型提供个性化的材料生成、批改与反馈。",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'No build step required for static web app'",
+    "sync:android": "npx cap sync android",
+    "open:android": "npx cap open android",
+    "run:android": "npx cap run android",
+    "build:android:debug": "cd android && ./gradlew assembleDebug",
+    "build:android:release": "cd android && ./gradlew assembleRelease"
+  },
+  "keywords": [
+    "japanese",
+    "learning",
+    "capacitor",
+    "android",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor-community/text-to-speech": "^8.0.2",
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/preferences": "^8.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
