@@ -1,33 +1,57 @@
-import { Capacitor } from '@capacitor/core';
-import { Preferences } from '@capacitor/preferences';
-
 const CONFIG_KEY = 'japanese_learning_config';
 const HISTORY_KEY = 'japanese_learning_history';
 const VOCAB_KEY = 'japanese_learning_vocab';
 
 const DEFAULT_CONFIG = {
-  apiBase: 'https://api.openai.com/v1',
+  apiBase: 'https://api.deepseek.com/v1',
   apiKey: '',
-  apiModel: 'gpt-4o-mini',
+  apiModel: 'deepseek-v4-pro',
   defaultLevel: 'N5',
 };
 
-const isNative = Capacitor.isNativePlatform();
+let isNative = false;
+let preferencesModule = null;
+
+function detectNative() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const cap = window.Capacitor;
+    return !!(cap && cap.isNativePlatform?.());
+  } catch {
+    return false;
+  }
+}
+
+async function ensurePreferences() {
+  if (!detectNative()) return null;
+  if (preferencesModule) return preferencesModule;
+  try {
+    preferencesModule = await import('@capacitor/preferences');
+    isNative = true;
+    return preferencesModule;
+  } catch (e) {
+    console.warn('Capacitor Preferences not available, using localStorage', e);
+    isNative = false;
+    return null;
+  }
+}
 
 async function nativeGet(key) {
-  if (!isNative) {
+  const prefs = await ensurePreferences();
+  if (!prefs) {
     try { return localStorage.getItem(key); } catch { return null; }
   }
-  const { value } = await Preferences.get({ key });
+  const { value } = await prefs.Preferences.get({ key });
   return value;
 }
 
 async function nativeSet(key, value) {
-  if (!isNative) {
+  const prefs = await ensurePreferences();
+  if (!prefs) {
     try { localStorage.setItem(key, value); } catch {}
     return;
   }
-  await Preferences.set({ key, value });
+  await prefs.Preferences.set({ key, value });
 }
 
 export async function loadConfig() {

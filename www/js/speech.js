@@ -1,18 +1,44 @@
-import { Capacitor } from '@capacitor/core';
-import { TextToSpeech } from '@capacitor-community/text-to-speech';
-import { SpeechRecognition } from '@capacitor-community/speech-recognition';
-
-const isNative = Capacitor.isNativePlatform();
+let isNative = false;
 let ttsPromise = null;
 let recognitionListener = null;
+let nativeModules = null;
+
+function detectNative() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const cap = window.Capacitor;
+    return !!(cap && cap.isNativePlatform?.());
+  } catch {
+    return false;
+  }
+}
+
+async function ensureNativeModules() {
+  if (!detectNative()) return null;
+  if (nativeModules) return nativeModules;
+  try {
+    const [tts, stt] = await Promise.all([
+      import('@capacitor-community/text-to-speech'),
+      import('@capacitor-community/speech-recognition'),
+    ]);
+    nativeModules = { TextToSpeech: tts.TextToSpeech, SpeechRecognition: stt.SpeechRecognition };
+    isNative = true;
+    return nativeModules;
+  } catch (e) {
+    console.warn('Capacitor speech modules not available, using Web Speech API', e);
+    isNative = false;
+    return null;
+  }
+}
 
 export async function speak(text, rate = 1.0) {
   if (!text) return;
 
-  if (isNative) {
+  const mods = await ensureNativeModules();
+  if (mods) {
     try {
       await stopSpeaking();
-      const p = TextToSpeech.speak({
+      const p = mods.TextToSpeech.speak({
         text,
         lang: 'ja-JP',
         rate,
@@ -55,8 +81,9 @@ function webSpeak(text, rate) {
 }
 
 export async function stopSpeaking() {
-  if (isNative) {
-    try { await TextToSpeech.stop(); } catch {}
+  const mods = await ensureNativeModules();
+  if (mods) {
+    try { await mods.TextToSpeech.stop(); } catch {}
   }
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   ttsPromise = null;
@@ -72,8 +99,9 @@ export function getVoices() {
 }
 
 export async function startRecognition(options = {}) {
-  if (isNative) {
-    const available = await SpeechRecognition.available();
+  const mods = await ensureNativeModules();
+  if (mods) {
+    const available = await mods.SpeechRecognition.available();
     if (!available.available) {
       throw new Error('设备不支持语音识别');
     }
@@ -99,27 +127,31 @@ export async function startRecognition(options = {}) {
   return { native: false, recognition: rec };
 }
 
-export function removeRecognitionListener() {
-  if (recognitionListener) {
-    SpeechRecognition.removeAllListeners();
+export async function removeRecognitionListener() {
+  const mods = await ensureNativeModules();
+  if (recognitionListener && mods) {
+    mods.SpeechRecognition.removeAllListeners();
     recognitionListener = null;
   }
 }
 
-export function addRecognitionListener(event, callback) {
-  if (!isNative) return;
+export async function addRecognitionListener(event, callback) {
+  const mods = await ensureNativeModules();
+  if (!mods) return;
   recognitionListener = true;
-  SpeechRecognition.addListener(event, callback);
+  mods.SpeechRecognition.addListener(event, callback);
 }
 
 export async function requestSpeechPermissions() {
-  if (!isNative) return { microphone: 'granted' };
-  return SpeechRecognition.requestPermissions();
+  const mods = await ensureNativeModules();
+  if (!mods) return { microphone: 'granted' };
+  return mods.SpeechRecognition.requestPermissions();
 }
 
 export async function stopRecognition() {
-  if (isNative) {
-    try { await SpeechRecognition.stop(); } catch {}
+  const mods = await ensureNativeModules();
+  if (mods) {
+    try { await mods.SpeechRecognition.stop(); } catch {}
   }
 }
 

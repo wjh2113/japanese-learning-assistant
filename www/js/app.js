@@ -1,8 +1,6 @@
-import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
 import { loadConfig, saveConfig, DEFAULT_CONFIG } from './config.js';
 import { isConfigured, testConnection } from './api.js';
-import { loadVoices, requestSpeechPermissions } from './speech.js';
+import { loadVoices } from './speech.js';
 import listening from './modules/listening.js';
 import speaking from './modules/speaking.js';
 import reading from './modules/reading.js';
@@ -11,22 +9,25 @@ import writing from './modules/writing.js';
 const modules = { listening, speaking, reading, writing };
 let currentTab = 'listening';
 let configCache = null;
+let initialized = false;
 
-const els = {
-  moduleContent: document.getElementById('moduleContent'),
-  tabBtns: document.querySelectorAll('.tab-btn'),
-  settingsBtn: document.getElementById('settingsBtn'),
-  settingsModal: document.getElementById('settingsModal'),
-  closeSettings: document.getElementById('closeSettings'),
-  settingsForm: document.getElementById('settingsForm'),
-  apiBase: document.getElementById('apiBase'),
-  apiKey: document.getElementById('apiKey'),
-  apiModel: document.getElementById('apiModel'),
-  defaultLevel: document.getElementById('defaultLevel'),
-  testConnection: document.getElementById('testConnection'),
-  loadingOverlay: document.getElementById('loadingOverlay'),
-  levelBadge: document.getElementById('levelBadge'),
-};
+function getElements() {
+  return {
+    moduleContent: document.getElementById('moduleContent'),
+    tabBtns: document.querySelectorAll('.tab-btn'),
+    settingsBtn: document.getElementById('settingsBtn'),
+    settingsModal: document.getElementById('settingsModal'),
+    closeSettings: document.getElementById('closeSettings'),
+    settingsForm: document.getElementById('settingsForm'),
+    apiBase: document.getElementById('apiBase'),
+    apiKey: document.getElementById('apiKey'),
+    apiModel: document.getElementById('apiModel'),
+    defaultLevel: document.getElementById('defaultLevel'),
+    testConnection: document.getElementById('testConnection'),
+    loadingOverlay: document.getElementById('loadingOverlay'),
+    levelBadge: document.getElementById('levelBadge'),
+  };
+}
 
 export async function getCachedConfig() {
   if (!configCache) configCache = await loadConfig();
@@ -38,17 +39,26 @@ export function invalidateConfigCache() {
 }
 
 export function showLoading(show) {
-  els.loadingOverlay.classList.toggle('hidden', !show);
-  els.loadingOverlay.classList.toggle('flex', show);
+  const overlay = document.getElementById('loadingOverlay');
+  if (!overlay) return;
+  overlay.classList.toggle('hidden', !show);
+  overlay.classList.toggle('flex', show);
 }
 
 export function setLoadingText(text) {
-  els.loadingOverlay.querySelector('p').textContent = text;
+  const overlay = document.getElementById('loadingOverlay');
+  if (!overlay) return;
+  const p = overlay.querySelector('p');
+  if (p) p.textContent = text;
 }
 
 export function switchTab(tab) {
+  if (!modules[tab]) {
+    console.error('Unknown tab:', tab);
+    return;
+  }
   currentTab = tab;
-  els.tabBtns.forEach((btn) => {
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
     const active = btn.dataset.tab === tab;
     btn.classList.toggle('tab-active', active);
   });
@@ -56,36 +66,57 @@ export function switchTab(tab) {
 }
 
 function renderModule() {
+  const content = document.getElementById('moduleContent');
+  if (!content) {
+    console.error('moduleContent not found');
+    return;
+  }
   const mod = modules[currentTab];
-  els.moduleContent.innerHTML = '';
-  els.moduleContent.classList.remove('fade-in');
-  void els.moduleContent.offsetWidth;
-  els.moduleContent.classList.add('fade-in');
-  mod.render(els.moduleContent);
+  content.innerHTML = '';
+  content.classList.remove('fade-in');
+  void content.offsetWidth;
+  content.classList.add('fade-in');
+
+  try {
+    const result = mod.render(content);
+    if (result && typeof result.then === 'function') {
+      result.catch((e) => showFatalError('模块渲染失败：' + e.message));
+    }
+  } catch (e) {
+    console.error('renderModule error:', e);
+    showFatalError('模块渲染失败：' + e.message);
+  }
 }
 
 async function openSettings() {
   const cfg = await loadConfig();
-  els.apiBase.value = cfg.apiBase || '';
-  els.apiKey.value = cfg.apiKey || '';
-  els.apiModel.value = cfg.apiModel || '';
-  els.defaultLevel.value = cfg.defaultLevel || 'N5';
-  els.settingsModal.classList.remove('hidden');
-  els.settingsModal.classList.add('flex');
+  const els = getElements();
+  if (els.apiBase) els.apiBase.value = cfg.apiBase || '';
+  if (els.apiKey) els.apiKey.value = cfg.apiKey || '';
+  if (els.apiModel) els.apiModel.value = cfg.apiModel || '';
+  if (els.defaultLevel) els.defaultLevel.value = cfg.defaultLevel || 'N5';
+  if (els.settingsModal) {
+    els.settingsModal.classList.remove('hidden');
+    els.settingsModal.classList.add('flex');
+  }
 }
 
 function closeSettings() {
-  els.settingsModal.classList.add('hidden');
-  els.settingsModal.classList.remove('flex');
+  const modal = document.getElementById('settingsModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
 }
 
 async function saveSettings(e) {
   e.preventDefault();
+  const els = getElements();
   const cfg = {
-    apiBase: els.apiBase.value.trim() || DEFAULT_CONFIG.apiBase,
-    apiKey: els.apiKey.value.trim(),
-    apiModel: els.apiModel.value.trim() || DEFAULT_CONFIG.apiModel,
-    defaultLevel: els.defaultLevel.value,
+    apiBase: (els.apiBase?.value || '').trim() || DEFAULT_CONFIG.apiBase,
+    apiKey: (els.apiKey?.value || '').trim(),
+    apiModel: (els.apiModel?.value || '').trim() || DEFAULT_CONFIG.apiModel,
+    defaultLevel: els.defaultLevel?.value || 'N5',
   };
   await saveConfig(cfg);
   invalidateConfigCache();
@@ -96,11 +127,12 @@ async function saveSettings(e) {
 }
 
 async function handleTestConnection() {
+  const els = getElements();
   const cfg = {
-    apiBase: els.apiBase.value.trim() || DEFAULT_CONFIG.apiBase,
-    apiKey: els.apiKey.value.trim(),
-    apiModel: els.apiModel.value.trim() || DEFAULT_CONFIG.apiModel,
-    defaultLevel: els.defaultLevel.value,
+    apiBase: (els.apiBase?.value || '').trim() || DEFAULT_CONFIG.apiBase,
+    apiKey: (els.apiKey?.value || '').trim(),
+    apiModel: (els.apiModel?.value || '').trim() || DEFAULT_CONFIG.apiModel,
+    defaultLevel: els.defaultLevel?.value || 'N5',
   };
   await saveConfig(cfg);
   invalidateConfigCache();
@@ -117,12 +149,21 @@ async function handleTestConnection() {
 
 async function updateLevelBadge() {
   const cfg = await loadConfig();
-  els.levelBadge.textContent = cfg.defaultLevel || 'N5';
+  const badge = document.getElementById('levelBadge');
+  if (badge) badge.textContent = cfg.defaultLevel || 'N5';
+}
+
+function isNativePlatform() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform?.());
+  } catch {
+    return false;
+  }
 }
 
 function showToast(message) {
-  if (Capacitor.isNativePlatform()) {
-    // Use a simple in-app toast
+  if (isNativePlatform()) {
     const toast = document.createElement('div');
     toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-lg text-sm z-50 fade-in';
     toast.textContent = message;
@@ -133,46 +174,81 @@ function showToast(message) {
   }
 }
 
-async function init() {
-  loadVoices();
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await requestSpeechPermissions();
-    } catch (e) {
-      console.warn('Speech permission request failed', e);
-    }
-  }
-  await updateLevelBadge();
+function showFatalError(message) {
+  const content = document.getElementById('moduleContent');
+  if (!content) return;
+  content.innerHTML = `
+    <div class="p-4 bg-rose-50 text-rose-700 rounded-lg">
+      <p class="font-semibold">应用初始化失败</p>
+      <p class="text-sm">${message}</p>
+      <p class="text-sm mt-2">请检查浏览器控制台（F12）获取详细错误信息。若使用 file:// 协议打开，请改用本地 HTTP 服务器访问。 </p>
+    </div>
+  `;
+}
 
-  els.tabBtns.forEach((btn) => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  els.settingsBtn.addEventListener('click', openSettings);
-  els.closeSettings.addEventListener('click', closeSettings);
-  els.settingsForm.addEventListener('submit', saveSettings);
-  els.testConnection.addEventListener('click', handleTestConnection);
-
-  els.settingsModal.addEventListener('click', (e) => {
-    if (e.target === els.settingsModal) closeSettings();
-  });
-
-  if (Capacitor.isNativePlatform()) {
-    App.addListener('backButton', () => {
-      if (!els.settingsModal.classList.contains('hidden')) {
+async function initBackButton() {
+  if (!isNativePlatform()) return;
+  try {
+    const { App } = await import('@capacitor/app');
+    await App.addListener('backButton', () => {
+      const modal = document.getElementById('settingsModal');
+      if (modal && !modal.classList.contains('hidden')) {
         closeSettings();
       } else {
         App.exitApp();
       }
     });
+  } catch (e) {
+    console.warn('Capacitor App plugin not available', e);
+  }
+}
+
+async function init() {
+  if (initialized) return;
+  initialized = true;
+
+  console.log('[App] Initializing...');
+  loadVoices();
+
+  const els = getElements();
+  if (!els.moduleContent) throw new Error('页面结构不完整，缺少 moduleContent');
+
+  els.tabBtns.forEach((btn) => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  if (els.settingsBtn) els.settingsBtn.addEventListener('click', openSettings);
+  if (els.closeSettings) els.closeSettings.addEventListener('click', closeSettings);
+  if (els.settingsForm) els.settingsForm.addEventListener('submit', saveSettings);
+  if (els.testConnection) els.testConnection.addEventListener('click', handleTestConnection);
+
+  if (els.settingsModal) {
+    els.settingsModal.addEventListener('click', (e) => {
+      if (e.target === els.settingsModal) closeSettings();
+    });
   }
 
+  await updateLevelBadge();
+  await initBackButton();
+
   const configured = await isConfigured();
+  console.log('[App] Configured:', configured);
   if (!configured) {
     openSettings();
   }
 
   renderModule();
+  console.log('[App] Rendered default tab:', currentTab);
 }
 
-init();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => init().catch((e) => {
+    console.error('App init failed', e);
+    showFatalError(e.message);
+  }));
+} else {
+  init().catch((e) => {
+    console.error('App init failed', e);
+    showFatalError(e.message);
+  });
+}

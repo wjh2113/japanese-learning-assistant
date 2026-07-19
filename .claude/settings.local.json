@@ -19,7 +19,18 @@
       "Bash(git remote *)",
       "Bash(gh repo *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(python -m http.server 8080 --bind 127.0.0.1)",
+      "Bash(curl -s http://127.0.0.1:8080)",
+      "Bash(curl -s http://127.0.0.1:8080/js/app.js)",
+      "Bash(curl -s http://127.0.0.1:8080/js/config.js)",
+      "Bash(curl -s http://127.0.0.1:8080/js/speech.js)",
+      "Bash(curl -s http://127.0.0.1:8080/js/api.js)",
+      "Bash(curl -s http://127.0.0.1:8080/js/modules/listening.js)",
+      "WebFetch(domain:127.0.0.1)"
     ]
   }
 }

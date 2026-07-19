@@ -1,5 +1,3 @@
-import { Capacitor } from '@capacitor/core';
-import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { chat, chatJson } from '../api.js';
 import { loadConfig, addHistory } from '../config.js';
 import { speak, startRecognition, addRecognitionListener, removeRecognitionListener, stopRecognition } from '../speech.js';
@@ -155,19 +153,20 @@ async function startRecording(btn) {
     const rec = await startRecognition({ lang: 'ja-JP', continuous: false, interimResults: false });
 
     if (rec.native) {
-      removeRecognitionListener();
-      addRecognitionListener('listeningResult', (result) => {
+      await removeRecognitionListener();
+      await addRecognitionListener('listeningResult', (result) => {
         if (result.matches && result.matches.length > 0) {
           const text = result.matches[0];
           state.recognizedText = text;
           showResult(text);
         }
       });
-      addRecognitionListener('listeningError', (err) => {
+      await addRecognitionListener('listeningError', (err) => {
         console.error('Speech recognition error', err);
         showError('语音识别失败：' + (err.message || '未知错误'));
         resetBtn();
       });
+      const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
       await SpeechRecognition.start(rec.options);
       resetBtn();
       return;
