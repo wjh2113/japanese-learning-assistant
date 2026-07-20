@@ -22,6 +22,7 @@ function getElements() {
     apiBase: document.getElementById('apiBase'),
     apiKey: document.getElementById('apiKey'),
     apiModel: document.getElementById('apiModel'),
+    customApiModel: document.getElementById('customApiModel'),
     defaultLevel: document.getElementById('defaultLevel'),
     testConnection: document.getElementById('testConnection'),
     loadingOverlay: document.getElementById('loadingOverlay'),
@@ -88,12 +89,35 @@ function renderModule() {
   }
 }
 
+function getSelectedModel(els) {
+  const select = els.apiModel;
+  if (!select) return DEFAULT_CONFIG.apiModel;
+  if (select.value === 'custom') {
+    return (els.customApiModel?.value || '').trim() || DEFAULT_CONFIG.apiModel;
+  }
+  return select.value;
+}
+
 async function openSettings() {
   const cfg = await loadConfig();
   const els = getElements();
-  if (els.apiBase) els.apiBase.value = cfg.apiBase || '';
+  if (els.apiBase) els.apiBase.value = cfg.apiBase || DEFAULT_CONFIG.apiBase;
   if (els.apiKey) els.apiKey.value = cfg.apiKey || '';
-  if (els.apiModel) els.apiModel.value = cfg.apiModel || '';
+
+  if (els.apiModel) {
+    const knownModels = ['deepseek-v4-pro', 'deepseek-v4', 'deepseek-chat', 'deepseek-reasoner'];
+    if (knownModels.includes(cfg.apiModel)) {
+      els.apiModel.value = cfg.apiModel;
+      if (els.customApiModel) els.customApiModel.classList.add('hidden');
+    } else {
+      els.apiModel.value = 'custom';
+      if (els.customApiModel) {
+        els.customApiModel.value = cfg.apiModel || '';
+        els.customApiModel.classList.remove('hidden');
+      }
+    }
+  }
+
   if (els.defaultLevel) els.defaultLevel.value = cfg.defaultLevel || 'N5';
   if (els.settingsModal) {
     els.settingsModal.classList.remove('hidden');
@@ -115,7 +139,7 @@ async function saveSettings(e) {
   const cfg = {
     apiBase: (els.apiBase?.value || '').trim() || DEFAULT_CONFIG.apiBase,
     apiKey: (els.apiKey?.value || '').trim(),
-    apiModel: (els.apiModel?.value || '').trim() || DEFAULT_CONFIG.apiModel,
+    apiModel: getSelectedModel(els),
     defaultLevel: els.defaultLevel?.value || 'N5',
   };
   await saveConfig(cfg);
@@ -131,7 +155,7 @@ async function handleTestConnection() {
   const cfg = {
     apiBase: (els.apiBase?.value || '').trim() || DEFAULT_CONFIG.apiBase,
     apiKey: (els.apiKey?.value || '').trim(),
-    apiModel: (els.apiModel?.value || '').trim() || DEFAULT_CONFIG.apiModel,
+    apiModel: getSelectedModel(els),
     defaultLevel: els.defaultLevel?.value || 'N5',
   };
   await saveConfig(cfg);

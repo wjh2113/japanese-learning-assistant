@@ -2,6 +2,7 @@ let isNative = false;
 let ttsPromise = null;
 let recognitionListener = null;
 let nativeModules = null;
+let voicesReady = false;
 
 function detectNative() {
   if (typeof window === 'undefined') return false;
@@ -61,23 +62,112 @@ export async function speak(text, rate = 1.0) {
   return webSpeak(text, rate);
 }
 
+async function ensureWebVoices() {
+  if (voicesReady) return;
+  if (!window.speechSynthesis) {
+    throw new Error('浏览器不支持语音合成');
+  }
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) {
+    voicesReady = true;
+    return;
+  }
+  await new Promise((resolve) => {
+    window.speechSynthesis.onvoiceschanged = () => {
+      voicesReady = true;
+      resolve();
+    };
+    setTimeout(() => {
+      voicesReady = true;
+      resolve();
+    }, 1000);
+  });
+}
+
+function findJapaneseVoice() {
+  const voices = window.speechSynthesis?.getVoices() || [];
+  return voices.find((v) => v.lang === 'ja-JP' || v.lang?.startsWith('ja'));
+}
+
 function webSpeak(text, rate) {
   return new Promise((resolve, reject) => {
     if (!window.speechSynthesis) {
       reject(new Error('浏览器不支持语音合成'));
       return;
     }
+
+    // Some browsers (especially mobile) need a user gesture; resume if paused
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'ja-JP';
     utter.rate = rate;
-    const voices = window.speechSynthesis.getVoices();
-    const jaVoice = voices.find((v) => v.lang === 'ja-JP' || v.lang.startsWith('ja'));
-    if (jaVoice) utter.voice = jaVoice;
-    utter.onend = () => resolve();
-    utter.onerror = (e) => reject(e.error ? new Error(e.error) : new Error('语音播放失败'));
+
+    const jaVoice = findJapaneseVoice();
+    if (jaVoice) {
+      utter.voice = jaVoice;
+    } else {
+      console.warn('未找到日语语音，将使用浏览器默认语音朗读');
+    }
+
+    let resolved = false;
+    utter.onend = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+    utter.onerror = (e) => {
+      if (resolved) return;
+      resolved = true;
+      if (!jaVoice) {
+        reject(new Error('语音播放失败：未找到日语语音包，请安装系统日语语音或更换浏览器'));
+      } else {
+        reject(new Error(e.error ? `语音播放失败：${e.error}` : '语音播放失败'));
+      }
+    };
+
+    // Some browsers (e.g. Chrome on Windows) stop speaking after ~15s; chunk long text
+    if (text.length > 200) {
+      speakInChunks(text, rate, resolve, reject);
+      return;
+    }
+
     window.speechSynthesis.speak(utter);
   });
+}
+
+function speakInChunks(text, rate, resolve, reject) {
+  // Split by sentence-ending punctuation to keep natural pauses
+  const chunks = text.split(/([。！？.!?\n]+)/).filter(Boolean);
+  const sentences = [];
+  for (let i = 0; i < chunks.length; i += 2) {
+    sentences.push((chunks[i] || '') + (chunks[i + 1] || ''));
+  }
+
+  let index = 0;
+  function next() {
+    if (index >= sentences.length) {
+      resolve();
+      return;
+    }
+    const chunk = sentences[index++];
+    if (!chunk.trim()) {
+      next();
+      return;
+    }
+    const utter = new SpeechSynthesisUtterance(chunk);
+    utter.lang = 'ja-JP';
+    utter.rate = rate;
+    const jaVoice = findJapaneseVoice();
+    if (jaVoice) utter.voice = jaVoice;
+    utter.onend = next;
+    utter.onerror = (e) => reject(new Error(e.error ? `语音播放失败：${e.error}` : '语音播放失败'));
+    window.speechSynthesis.speak(utter);
+  }
+  next();
 }
 
 export async function stopSpeaking() {
@@ -155,20 +245,14 @@ export async function stopRecognition() {
   }
 }
 
-export function loadVoices() {
-  return new Promise((resolve) => {
-    if (!window.speechSynthesis) {
-      resolve([]);
-      return;
-    }
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length) {
-      resolve(voices);
-      return;
-    }
-    window.speechSynthesis.onvoiceschanged = () => {
-      resolve(window.speechSynthesis.getVoices());
-    };
-    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1000);
-  });
+export async function loadVoices() {
+  try {
+    await ensureWebVoices();
+  } catch (e) {
+    console.warn('Load voices failed:', e);
+  }
+}
+
+export function hasJapaneseVoice() {
+  return !!findJapaneseVoice();
 }

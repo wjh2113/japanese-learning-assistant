@@ -84,22 +84,39 @@
   <div id="settingsModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-bold">设置</h2>
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs">DS</div>
+          <h2 class="text-lg font-bold">DeepSeek 模型配置</h2>
+        </div>
         <button id="closeSettings" class="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center">✕</button>
       </div>
+
+      <div class="p-3 bg-sky-50 rounded-lg mb-4 text-sm text-sky-800">
+        <p class="font-medium">🚀 默认使用 DeepSeek V4 Pro</p>
+        <p class="text-xs mt-1 text-sky-600">在 <a href="https://platform.deepseek.com/" target="_blank" class="underline">platform.deepseek.com</a> 获取 API Key</p>
+      </div>
+
       <form id="settingsForm" class="space-y-4">
         <div>
           <label class="block text-sm font-medium mb-1">API Base URL</label>
-          <input type="text" id="apiBase" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="https://api.deepseek.com/v1" />
-          <p class="text-xs text-slate-500 mt-1">支持 OpenAI、DeepSeek、Claude 兼容端点</p>
+          <input type="text" id="apiBase" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="https://api.deepseek.com/v1" value="https://api.deepseek.com/v1" />
+          <p class="text-xs text-slate-500 mt-1">DeepSeek 官方 API 地址，一般无需修改</p>
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">API Key</label>
+          <label class="block text-sm font-medium mb-1">DeepSeek API Key</label>
           <input type="password" id="apiKey" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="sk-..." />
+          <p class="text-xs text-slate-500 mt-1">你的 API Key 仅保存在本地浏览器</p>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">默认模型</label>
-          <input type="text" id="apiModel" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="deepseek-v4-pro" />
+          <select id="apiModel" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <option value="deepseek-v4-pro" selected>deepseek-v4-pro（推荐）</option>
+            <option value="deepseek-v4">deepseek-v4</option>
+            <option value="deepseek-chat">deepseek-chat</option>
+            <option value="deepseek-reasoner">deepseek-reasoner</option>
+            <option value="custom">自定义（请在下方输入）</option>
+          </select>
+          <input type="text" id="customApiModel" class="hidden w-full mt-2 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="输入自定义模型名称" />
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">默认等级</label>
@@ -112,8 +129,8 @@
           </select>
         </div>
         <div class="pt-2 flex flex-col gap-3">
-          <button type="submit" class="w-full bg-sky-600 text-white py-2.5 rounded-lg hover:bg-sky-700 transition active:bg-sky-800">保存</button>
-          <button type="button" id="testConnection" class="w-full border border-slate-300 py-2.5 rounded-lg hover:bg-slate-100 transition active:bg-slate-200">测试连接</button>
+          <button type="submit" class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white py-2.5 rounded-lg hover:opacity-90 transition active:opacity-80">保存配置</button>
+          <button type="button" id="testConnection" class="w-full border border-slate-300 py-2.5 rounded-lg hover:bg-slate-100 transition active:bg-slate-200">测试 DeepSeek 连接</button>
         </div>
       </form>
     </div>
